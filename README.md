@@ -16,7 +16,7 @@ An interactive map and dashboard for exploring UC Berkeley's on-campus student h
 | Category | Buildings |
 |---|---|
 | Undergraduate residence halls | Unit 1, Unit 2, Unit 3, Foothill, Stern, Clark Kerr, Blackwell Hall, Martinez Commons |
-| Undergraduate apartments | Channing-Bowditch, Enclave, Panoramic Berkeley, New Sequoia, Wada, Helen Diller Anchor House (transfer-only) |
+| Undergraduate apartments | Channing-Bowditch, Enclave, Panoramic Berkeley, Wada, Helen Diller Anchor House (transfer-only) |
 | Graduate apartments | Ida L. Jackson, Intersection, Manville, xučyun ruwway (grad-priority, limited undergrad) |
 | Family student housing | University Village (Albany) |
 
