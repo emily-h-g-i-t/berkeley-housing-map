@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cal Housing Map — UC Berkeley Student Housing Explorer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  :root{
+    --gold: #FDB515;
+    --blue: #003262;
+    --blue-deep: #001A38;
+    --paper: #F7F5F0;
+    --ink: #1B1B1B;
+    --line: #D9D3C4;
+    --card: #FFFFFF;
+    --grad-accent: #7A3B69;
+    --undergrad-accent: #1E6B52;
+    --family-accent: #B24A2E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;font-family:'Georgia', 'Iowan Old Style', serif;background:var(--paper);color:var(--ink);}
+  body{display:flex;flex-direction:column;}
+
+  header{
+    background:var(--blue);
+    color:white;
+    padding:18px 28px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    border-bottom:4px solid var(--gold);
+  }
+  header .brand{display:flex;align-items:baseline;gap:14px;}
+  header h1{
+    font-family:'Trebuchet MS', 'Helvetica Neue', sans-serif;
+    font-weight:800;
+    letter-spacing:0.5px;
+    font-size:22px;
+    margin:0;
+  }
+  header .tag{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:12px;
+    color:var(--gold);
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+  }
+  header .count{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:13px;
+    color:#cfe0f2;
+  }
+
+  .layout{
+    display:flex;
+    flex:1;
+    min-height:0;
+  }
+
+  .sidebar{
+    width:340px;
+    min-width:280px;
+    background:white;
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    overflow-y:auto;
+  }
+  .filters{
+    padding:20px 20px 10px 20px;
+    border-bottom:1px solid var(--line);
+  }
+  .filters h2{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:#8a8478;
+    margin:0 0 14px 0;
+  }
+  .filter-group{margin-bottom:16px;}
+  .filter-group label{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    display:block;
+    margin-bottom:6px;
+    color:var(--blue);
+  }
+  select, input[type=range]{
+    width:100%;
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:13px;
+    padding:7px 8px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11.5px;
+    padding:5px 10px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    cursor:pointer;
+    background:white;
+    color:var(--ink);
+    user-select:none;
+    transition:all .15s;
+  }
+  .chip.active{
+    background:var(--blue);
+    color:white;
+    border-color:var(--blue);
+  }
+  .chip:hover{border-color:var(--blue);}
+  .price-labels{
+    display:flex;
+    justify-content:space-between;
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11px;
+    color:#8a8478;
+    margin-top:4px;
+  }
+  .reset-btn{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:12px;
+    color:var(--blue);
+    background:none;
+    border:none;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+    margin-top:6px;
+  }
+
+  .list{
+    flex:1;
+    padding:10px 14px 20px 14px;
+  }
+  .list h2{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:#8a8478;
+    margin:10px 6px 10px 6px;
+  }
+  .dorm-card{
+    border:1px solid var(--line);
+    border-left:4px solid var(--blue);
+    border-radius:4px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    cursor:pointer;
+    transition:box-shadow .15s, transform .15s;
+    background:white;
+  }
+  .dorm-card:hover{
+    box-shadow:0 3px 10px rgba(0,50,98,0.12);
+    transform:translateY(-1px);
+  }
+  .dorm-card.selected{
+    background:#EFF5FB;
+    border-left-color:var(--gold);
+  }
+  .dorm-card .name{
+    font-weight:700;
+    font-size:15px;
+    color:var(--blue);
+    margin-bottom:3px;
+  }
+  .dorm-card .meta{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11.5px;
+    color:#6b6558;
+    margin-bottom:6px;
+  }
+  .dorm-card .price{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .tag-pill{
+    display:inline-block;
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    padding:2px 7px;
+    border-radius:3px;
+    color:white;
+    margin-top:6px;
+  }
+
+  .map-area{
+    flex:1;
+    position:relative;
+  }
+  #map{
+    height:100%;
+    width:100%;
+  }
+
+  .leaflet-popup-content-wrapper{
+    border-radius:6px;
+  }
+  .popup-inner{font-family:'Helvetica Neue', sans-serif;max-width:260px;}
+  .popup-inner h3{
+    font-family:Georgia, serif;
+    color:var(--blue);
+    margin:0 0 4px 0;
+    font-size:16px;
+  }
+  .popup-inner .row{margin:4px 0;font-size:12.5px;line-height:1.4;}
+  .popup-inner .row b{color:#444;}
+
+  .detail-panel{
+    position:absolute;
+    top:16px;
+    right:16px;
+    width:320px;
+    max-height:calc(100% - 32px);
+    overflow-y:auto;
+    background:white;
+    border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.18);
+    padding:20px;
+    display:none;
+    z-index:1000;
+  }
+  .detail-panel.open{display:block;}
+  .detail-panel .close-btn{
+    position:absolute;
+    top:12px;
+    right:14px;
+    background:none;
+    border:none;
+    font-size:20px;
+    cursor:pointer;
+    color:#999;
+    line-height:1;
+  }
+  .detail-panel h3{
+    font-family:Georgia, serif;
+    color:var(--blue);
+    font-size:20px;
+    margin:0 0 4px 0;
+    padding-right:20px;
+  }
+  .detail-panel .addr{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:12px;
+    color:#8a8478;
+    margin-bottom:14px;
+  }
+  .detail-panel .section{margin-bottom:14px;}
+  .detail-panel .section h4{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--gold);
+    background:var(--blue);
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:3px;
+    margin:0 0 6px 0;
+  }
+  .detail-panel .section p{
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:13px;
+    line-height:1.5;
+    margin:0;
+    color:var(--ink);
+  }
+
+  .legend{
+    position:absolute;
+    bottom:16px;
+    left:16px;
+    background:white;
+    padding:10px 14px;
+    border-radius:6px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.12);
+    font-family:'Helvetica Neue', sans-serif;
+    font-size:11.5px;
+    z-index:999;
+  }
+  .legend .row{display:flex;align-items:center;gap:7px;margin:3px 0;}
+  .legend .dot{width:11px;height:11px;border-radius:50%;display:inline-block;}
+
+  @media (max-width: 780px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%;max-height:45vh;border-right:none;border-bottom:1px solid var(--line);}
+    .map-area{min-height:50vh;}
+    .detail-panel{left:16px;width:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>CAL HOUSING MAP</h1>
+    <span class="tag">UC Berkeley Student Housing Explorer</span>
+  </div>
+  <span class="count" id="resultCount">19 housing options</span>
+</header>
+
+<div class="layout">
+
+  <div class="sidebar">
+    <div class="filters">
+      <h2>Who's applying?</h2>
+      <div class="filter-group">
+        <div class="chip-row" id="eligibilityChips"></div>
+      </div>
+
+      <h2>Filter</h2>
+      <div class="filter-group">
+        <label>Housing type</label>
+        <div class="chip-row" id="typeChips"></div>
+      </div>
+
+      <div class="filter-group">
+        <label>Meal plan included</label>
+        <div class="chip-row" id="mealChips"></div>
+      </div>
+
+      <div class="filter-group">
+        <label>Sort by</label>
+        <select id="sortSelect">
+          <option value="name">Name (A–Z)</option>
+          <option value="price">Price (low to high)</option>
+          <option value="distance">Distance to campus</option>
+        </select>
+      </div>
+
+      <button class="reset-btn" id="resetBtn">Reset all filters</button>
+    </div>
+
+    <div class="list">
+      <h2 id="listLabel">All housing (19)</h2>
+      <div id="cardList"></div>
+    </div>
+  </div>
+
+  <div class="map-area">
+    <div id="map"></div>
+    <div class="legend">
+      <div class="row"><span class="dot" style="background:#1E6B52"></span> Undergraduate</div>
+      <div class="row"><span class="dot" style="background:#7A3B69"></span> Graduate</div>
+      <div class="row"><span class="dot" style="background:#B24A2E"></span> Family housing</div>
+    </div>
+    <div class="detail-panel" id="detailPanel">
+      <button class="close-btn" id="closeDetail">&times;</button>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DATA = [
+ {
+  "name": "Unit 1",
+  "address": "2650 Durant Avenue, Berkeley, CA 94720",
+  "latitude": 37.86868390674107,
+  "longitude": -122.255242467272,
+  "room_types": "Mini-suite (Single/Double/Triple), Suite (Single/Double/Triple/Quad)",
+  "price_range_academic_year": "$19255-$29005 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Traditional building, mini-suites (two rooms share one bath) and suites; buildings: Cheney, Deutsch, Freeborn, Putnam, Christian, Slottman",
+  "capacity_notes": "6 buildings around a courtyard; Christian/Slottman offer mini-suites up to 170 guests/building",
+  "amenities": "Wi-Fi, live-in staff, laundry, Academic Success Center, community bathrooms, study lounges",
+  "theme_programs": "African American Theme Program (AATP), Native American Theme Program (NATP)",
+  "dining_hall": "Crossroads (Foothill) or nearby dining commons",
+  "distance_to_campus": "~1 block south of campus, near fraternity row",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Unit 2",
+  "address": "2650 Haste Street, Berkeley, CA 94720",
+  "latitude": 37.8668944753256,
+  "longitude": -122.254743636585,
+  "room_types": "Mini-suite (Single/Double/Triple), Apartment-style (Wada)",
+  "price_range_academic_year": "$19255-$26855 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Mini-suites (Towle Hall) plus Wada Apartments",
+  "capacity_notes": "Towle Hall accommodates up to 180 guests in double-occupancy mini-suites",
+  "amenities": "Wi-Fi, live-in staff, laundry, community bathrooms, study lounges",
+  "theme_programs": "Bloom Asian American / South Asian / SWANA Living Community (SSWANA)",
+  "dining_hall": "Nearby dining commons",
+  "distance_to_campus": "~3 blocks south of campus",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Unit 3",
+  "address": "2400 Durant Avenue, Berkeley, CA 94720",
+  "latitude": 37.8678722704276,
+  "longitude": -122.259823252458,
+  "room_types": "Suite (Single/Double/Triple/Quad)",
+  "price_range_academic_year": "$23805-$29005 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Suite-style, 2-11 rooms sharing bathroom(s) and living area; buildings: Ida Sproul, Norton, Priestley, Spens-Black, Beverly Cleary",
+  "capacity_notes": "Close to Telegraph Ave nightlife",
+  "amenities": "Wi-Fi, live-in staff, laundry, community bathrooms/lounges, study spaces",
+  "theme_programs": "Casa Magdalena Mora (CASA), Unity LGBTQ+ Affirming Theme Program",
+  "dining_hall": "Nearby dining commons",
+  "distance_to_campus": "~2 blocks south of campus, near Telegraph St",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Foothill (Unit 4)",
+  "address": "2700 Hearst Avenue, Berkeley, CA 94720",
+  "latitude": 37.8761034148579,
+  "longitude": -122.255875043376,
+  "room_types": "Suite (Single/Double/Triple/Quad)",
+  "price_range_academic_year": "$23805-$29005 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Suite-style in eucalyptus grove setting, wood-shingle buildings with redwood decks; 2-11 double-occupancy bedrooms per suite",
+  "capacity_notes": "Houses up to 700 guests",
+  "amenities": "Wi-Fi, live-in staff, laundry, eSports Center (shared w/ Stern), reputed best dining hall food",
+  "theme_programs": "-",
+  "dining_hall": "Foothill Dining Commons",
+  "distance_to_campus": "Northeast side of campus, uphill walk",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Stern (Unit 4)",
+  "address": "Hearst Avenue & Highland Place, Berkeley, CA 94720",
+  "latitude": 37.875696022679,
+  "longitude": -122.255617553867,
+  "room_types": "Standard Room (Single/Double/Triple/Quad), Suite",
+  "price_range_academic_year": "$19255-$29005 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Traditional + suite-style rooms; all-women community historically, now co-ed with some female-only floors",
+  "capacity_notes": "Shares eSports Center and Foothill Dining Commons with Foothill residents",
+  "amenities": "Wi-Fi, live-in staff, laundry, community bathrooms/lounges",
+  "theme_programs": "Empowering Womxn in STEAM (WISE) Theme Program",
+  "dining_hall": "Foothill Dining Commons",
+  "distance_to_campus": "Northeast side of campus, uphill walk",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Clark Kerr (Unit 5)",
+  "address": "2601 Warring Street, Berkeley, CA 94720",
+  "latitude": 37.864733455541,
+  "longitude": -122.24885105193096,
+  "room_types": "Standard Room (Single/Double/Triple/Large Triple/Quad), Suite, Apartment (Double/Triple)",
+  "price_range_academic_year": "$19255-$29005 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Spanish mission-style complex with courtyards and fountains; only location with Quad rooms",
+  "capacity_notes": "Farthest residence hall from central campus (~20 min walk to Dwinelle)",
+  "amenities": "Wi-Fi, live-in staff, laundry, large green spaces/courtyards, considered one of the best dining halls",
+  "theme_programs": "Global Environment Theme House (GETH)",
+  "dining_hall": "Clark Kerr Dining Hall (highly rated)",
+  "distance_to_campus": "~6 blocks southeast of main campus",
+  "eligibility": "First-year, transfer, and continuing undergraduate students"
+ },
+ {
+  "name": "Blackwell Hall",
+  "address": "2401 Durant Avenue, Berkeley, CA 94720",
+  "latitude": 37.8678789954322,
+  "longitude": -122.261238585093,
+  "room_types": "Premium Room (Single/Double)",
+  "price_range_academic_year": "$24805-$27465 (incl. meal plan)",
+  "meal_plan_included": "Yes",
+  "style": "Newest traditional-style hall (opened 2018); no bunk beds, community bathrooms per wing",
+  "capacity_notes": "Very few single rooms, mostly reserved for documented disability accommodations",
+  "amenities": "Wi-Fi, live-in staff, laundry, fitness facility, Academic Success Center, equipment fee waived (fridge/microwave included)",
+  "theme_programs": "-",
+  "dining_hall": "Nearby dining commons",
+  "distance_to_campus": "~1 block south of campus",
+  "eligibility": "First-year, transfer, and continuing undergraduate students (university-affiliated property, on-site management by public-private partner)"
+ },
+ {
+  "name": "Maximino Martinez Commons",
+  "address": "2520 Channing Way, Berkeley, CA 94720",
+  "latitude": 37.8678459765477,
+  "longitude": -122.257694582616,
+  "room_types": "Premium Residence Hall Room (Single/Double/Triple), Apartment (Townhouse Single/Double)",
+  "price_range_academic_year": "$22170-$28575 (incl. meal plan for res hall)",
+  "meal_plan_included": "Yes (res hall only)",
+  "style": "Modern, sustainable building combining residence hall + apartment styles",
+  "capacity_notes": "Only campus residence hall that remains open during winter break",
+  "amenities": "Wi-Fi, live-in staff, laundry, academic center, gym, meeting rooms, study rooms every floor, outdoor common area",
+  "theme_programs": "-",
+  "dining_hall": "Nearby dining commons",
+  "distance_to_campus": "~2 blocks south of campus",
+  "eligibility": "First-year, transfer, and continuing undergraduate students (residence hall side); apartments open to continuing students"
+ },
+ {
+  "name": "Helen Diller Anchor House",
+  "address": "1950 Oxford Street, Berkeley, CA 94720",
+  "latitude": 37.8737100794941,
+  "longitude": -122.266549282612,
+  "room_types": "Apartment (Studio, 2/3/4-bedroom, all single-occupancy bedrooms)",
+  "price_range_academic_year": "$21835-$23695 (apartment rates, no meal plan included)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "New apartment building for transfer students; fully furnished studios and 2-4BR apartments, all single-occupancy bedrooms",
+  "capacity_notes": "Designed to foster connection/belonging specifically for transfer students",
+  "amenities": "Wi-Fi, live-in staff, laundry, fully furnished, single-occupancy bedrooms",
+  "theme_programs": "Transfer-only community",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "Near northeast edge of campus (Oxford St)",
+  "eligibility": "Transfer students only (current UC Berkeley students who entered as transfers)"
+ },
+ {
+  "name": "xučyun ruwway Apartments",
+  "address": "1051 Monroe Street, Albany, CA 94706",
+  "latitude": 37.8852077815574,
+  "longitude": -122.299511628636,
+  "room_types": "Apartment (Studio, 1BR, 2BR, 4BR, single-occupancy bedrooms)",
+  "price_range_academic_year": "Grad: $1531-$2495/month; Undergrad: $17150-$18710/year (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Newest and largest graduate housing complex; five interconnected buildings, all-electric/sustainable design, fully furnished",
+  "capacity_notes": "761 total beds; ~360 graduate + ~200 undergraduate students; priority to Rausser College of Natural Resources grad students",
+  "amenities": "Wi-Fi, fitness center, secure bike storage, courtyards, study rooms, in-unit washer/dryer, adjacent to Sprouts grocery, coffee shop, ATM",
+  "theme_programs": "-",
+  "dining_hall": "None on-site; off-campus meal plans available",
+  "distance_to_campus": "3.5 miles from campus (Albany), direct AC Transit bus line + BART connection",
+  "eligibility": "Primarily graduate students (priority: single grad students in Rausser College of Natural Resources); a limited number of continuing undergraduates (2nd year+) eligible for 2BR/4BR units — first-year undergrads NOT eligible"
+ },
+ {
+  "name": "Channing-Bowditch Apartments",
+  "address": "2535 Channing Way, Berkeley, CA 94720",
+  "latitude": 37.8681524591149,
+  "longitude": -122.257374340577,
+  "room_types": "Apartment (Townhouse Single, Single, Townhouse Double, Double, Triple)",
+  "price_range_academic_year": "$15300-$18765 (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Undergraduate apartment complex, two-bedroom apartments with double/triple occupancy most common",
+  "capacity_notes": "Shared kitchen, living area, bathroom(s) per apartment",
+  "amenities": "Wi-Fi, laundry, kitchen in-unit",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~2 blocks south of campus",
+  "eligibility": "Continuing/transfer undergraduate students"
+ },
+ {
+  "name": "Enclave Apartments",
+  "address": "2503 Haste Street, Berkeley, CA 94720",
+  "latitude": 37.86668617321592,
+  "longitude": -122.25842127118847,
+  "room_types": "Apartment (Single, Large Double, Small Double, Double in shared studio)",
+  "price_range_academic_year": "$19470-$22305 (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Opened Fall 2020; single and double rooms in shared apartments, lounge spaces, outdoor terraces",
+  "capacity_notes": "3 blocks from campus, amid restaurants/cafes/shops",
+  "amenities": "Wi-Fi, laundry, lounges, outdoor patios, bike storage, package hub (LuxerONE), kitchen w/ stove & fridge",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~3 blocks from campus",
+  "eligibility": "Continuing and transfer undergraduate students"
+ },
+ {
+  "name": "Panoramic Berkeley",
+  "address": "2539 Telegraph Avenue, Berkeley, CA 94704",
+  "latitude": 37.8650679748939,
+  "longitude": -122.258556136057,
+  "room_types": "Apartment (Single in 3BR/4BR/5BR, Double in 3BR or shared studio)",
+  "price_range_academic_year": "$19115-$20580 (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "6-story building, 70 apartments; modern furnishings, rooftop garden, lounges on every floor",
+  "capacity_notes": "Mostly single-occupancy rooms in shared 3-5BR apartments; some rooms reserved for documented disability need",
+  "amenities": "Wi-Fi, A/C, laundry, rooftop garden, lounges, hospital-grade ventilation, sound-proofing",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~7 minute walk to campus (Southside/Telegraph Ave)",
+  "eligibility": "Continuing and transfer undergraduate students"
+ },
+ {
+  "name": "Ida L. Jackson Graduate House Apartments",
+  "address": "2333 College Avenue, Berkeley, CA 94720",
+  "latitude": 37.8682434011767,
+  "longitude": -122.254138591402,
+  "room_types": "Apartment (single-occupancy room in shared 2/3/4/5/6-bedroom apartment)",
+  "price_range_academic_year": "$1570-$1835/month (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Furnished single-occupancy rooms in shared apartments",
+  "capacity_notes": "Shared kitchen/living/bathroom(s) per apartment",
+  "amenities": "Wi-Fi, laundry, furnished rooms",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~10-15 min walk, near College Ave/Southside",
+  "eligibility": "Graduate students (single student apartments)"
+ },
+ {
+  "name": "Intersection Apartments",
+  "address": "3800 San Pablo Avenue, Emeryville",
+  "latitude": 37.8294566851098,
+  "longitude": -122.278727722103,
+  "room_types": "Apartment (Studio, 1BR, 2BR, 4BR; single-occupancy rooms, furnished)",
+  "price_range_academic_year": "$1530-$2465/month (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Furnished studios and shared apartments for single graduate students",
+  "capacity_notes": "Range from single-occupancy rooms in shared 4BR to standard 1BR/1BA apartments",
+  "amenities": "Wi-Fi, laundry, furnished units, some with balconies",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "in emveryvile",
+  "eligibility": "Graduate students (single student apartments)"
+ },
+ {
+  "name": "Manville Apartments",
+  "address": "2100 Channing Way, Berkeley, CA 94720",
+  "latitude": 37.8663745032761,
+  "longitude": -122.266503729178,
+  "room_types": "Apartment (Standard studio, Deck/Court studio, Bayview studio; furnished or unfurnished)",
+  "price_range_academic_year": "$1715-$1840/month (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Single-occupancy studio apartments for graduate students",
+  "capacity_notes": "Furnished and unfurnished options available",
+  "amenities": "Wi-Fi, laundry, studio kitchenette",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~4 blocks west of campus",
+  "eligibility": "Graduate students (single student apartments)"
+ },
+ {
+  "name": "University Village (UVA) - East & West Village Apartments",
+  "address": "1125 Jackson Street, Albany, CA 94706",
+  "latitude": 37.8840763791063,
+  "longitude": -122.299558436573,
+  "room_types": "Family apartments (studio to multi-bedroom, unfurnished)",
+  "price_range_academic_year": "Varies by unit size (contact Family Student Housing for current rates)",
+  "meal_plan_included": "No",
+  "style": "58-acre family housing complex with recreational/community center, child care center",
+  "capacity_notes": "974 apartments and townhouses; for students/postdocs with children, married/partnered couples, or single students under 18 living with a parent/guardian",
+  "amenities": "Wi-Fi, laundry rooms, community center, child care center, playgrounds, adjacent supermarket, direct bus route to campus",
+  "theme_programs": "-",
+  "dining_hall": "None on-site; residents cook in-unit",
+  "distance_to_campus": "3.5 miles west of campus (Albany)",
+  "eligibility": "Undergraduate and graduate students, and postdocs, who are married/domestic partners, single parents with dependent minors, or dependents themselves living with a parent/guardian"
+ },
+ {
+  "name": "Wada Apartments (Unit 2)",
+  "address": "2650 Haste Street, Berkeley, CA 94720",
+  "latitude": 37.8668944753256,
+  "longitude": -122.254743636585,
+  "room_types": "Apartment (Double, Triple bedroom)",
+  "price_range_academic_year": "$15300-$16865 (no meal plan)",
+  "meal_plan_included": "No (off-campus meal plans available)",
+  "style": "Apartment building located within the Unit 2 complex, spacious bedrooms",
+  "capacity_notes": "Most apartments feature two bedrooms with double- or triple-occupancy",
+  "amenities": "Wi-Fi, laundry, kitchen in-unit",
+  "theme_programs": "-",
+  "dining_hall": "Off-campus meal plan option (not included)",
+  "distance_to_campus": "~3 blocks south of campus",
+  "eligibility": "Continuing and transfer undergraduate students"
+ }
+];
+
+// Classify each hall by broad eligibility category for coloring & filter chips
+function classify(d){
+  const e = d.eligibility.toLowerCase();
+  if(e.includes('married') || e.includes('family') || e.includes('parent') || e.includes('domestic partner')) return 'Family';
+  if(e.includes('transfer students only') || e.includes('transfer-only')) return 'Transfer only';
+  const hasUndergrad = e.includes('undergraduate');
+  const strippedOfUndergrad = e.replace(/undergraduates?/g, '');
+  const hasGrad = strippedOfUndergrad.includes('graduate') || strippedOfUndergrad.includes('grad student') || strippedOfUndergrad.includes('grad students');
+  if(hasGrad && hasUndergrad) return 'Grad + limited undergrad';
+  if(hasGrad && !hasUndergrad) return 'Graduate';
+  return 'Undergraduate';
+}
+function categoryColor(cat){
+  if(cat === 'Family') return '#B24A2E';
+  if(cat === 'Graduate' || cat === 'Grad + limited undergrad') return '#7A3B69';
+  if(cat === 'Transfer only') return '#1E6B52';
+  return '#1E6B52';
+}
+
+function parsePriceLow(str){
+  const monthly = str.match(/\$([\d,]+)\/month/);
+  const nums = str.match(/\$([\d,]+)/g);
+  if(!nums) return null;
+  const vals = nums.map(n => parseInt(n.replace(/[$,]/g,'')));
+  let low = Math.min(...vals);
+  if(monthly) low = low * 9;
+  return low;
+}
+
+DATA.forEach(d => {
+  d._cat = classify(d);
+  d._priceLow = parsePriceLow(d.price_range_academic_year);
+  d._lat = parseFloat(d.latitude);
+  d._lng = parseFloat(d.longitude);
+});
+
+const map = L.map('map', {scrollWheelZoom:true}).setView([37.8709, -122.2650], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+let markers = {};
+let activeCardId = null;
+
+function makeMarker(d, idx){
+  const color = categoryColor(d._cat);
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+    iconSize:[16,16],
+    iconAnchor:[8,8]
+  });
+  const marker = L.marker([d._lat, d._lng], {icon}).addTo(map);
+  marker.bindPopup(popupHTML(d));
+  marker.on('click', () => openDetail(idx));
+  return marker;
+}
+
+function popupHTML(d){
+  return `<div class="popup-inner">
+    <h3>${d.name}</h3>
+    <div class="row"><b>Price:</b> ${d.price_range_academic_year}</div>
+    <div class="row"><b>Room types:</b> ${d.room_types}</div>
+    <div class="row"><b>Eligibility:</b> ${d.eligibility}</div>
+  </div>`;
+}
+
+function rebuildMarkers(list){
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  list.forEach((d) => {
+    const idx = DATA.indexOf(d);
+    markers[idx] = makeMarker(d, idx);
+  });
+}
+
+const state = {
+  eligibility: 'All',
+  type: 'All',
+  meal: 'All',
+  sort: 'name'
+};
+
+const eligibilityOptions = ['All', 'Undergraduate', 'Graduate', 'Grad + limited undergrad', 'Transfer only', 'Family'];
+const typeOptions = ['All', 'Residence hall', 'Apartment'];
+const mealOptions = ['All', 'Yes', 'No'];
+
+function isResidenceHall(d){
+  return d.room_types.toLowerCase().includes('suite') && !d.room_types.toLowerCase().includes('apartment') || d.name.toLowerCase().includes('hall') || d.name.startsWith('Unit') || d.name.includes('Foothill') || d.name.includes('Stern') || d.name.includes('Clark Kerr') || d.name.includes('Martinez');
+}
+
+function buildChips(containerId, options, stateKey){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  options.forEach(opt => {
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (state[stateKey] === opt ? ' active' : '');
+    chip.textContent = opt;
+    chip.onclick = () => {
+      state[stateKey] = opt;
+      buildChips(containerId, options, stateKey);
+      render();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function passesFilter(d){
+  if(state.eligibility !== 'All' && d._cat !== state.eligibility) return false;
+  if(state.type !== 'All'){
+    const isHall = isResidenceHall(d);
+    if(state.type === 'Residence hall' && !isHall) return false;
+    if(state.type === 'Apartment' && isHall) return false;
+  }
+  if(state.meal !== 'All' && d.meal_plan_included !== state.meal) return false;
+  return true;
+}
+
+function sortList(list){
+  const arr = [...list];
+  if(state.sort === 'price'){
+    arr.sort((a,b) => (a._priceLow||999999) - (b._priceLow||999999));
+  } else if(state.sort === 'distance'){
+    const distScore = d => {
+      const s = d.distance_to_campus.toLowerCase();
+      const m = s.match(/(\d+(\.\d+)?)/);
+      if(s.includes('mile')) return (m?parseFloat(m[1]):3) * 10;
+      if(s.includes('block')) return (m?parseFloat(m[1]):1);
+      return 0.5;
+    };
+    arr.sort((a,b) => distScore(a) - distScore(b));
+  } else {
+    arr.sort((a,b) => a.name.localeCompare(b.name));
+  }
+  return arr;
+}
+
+function render(){
+  const filtered = DATA.filter(passesFilter);
+  const sorted = sortList(filtered);
+
+  document.getElementById('resultCount').textContent = `${filtered.length} housing option${filtered.length!==1?'s':''}`;
+  document.getElementById('listLabel').textContent = `Results (${filtered.length})`;
+
+  const cardList = document.getElementById('cardList');
+  cardList.innerHTML = '';
+  sorted.forEach(d => {
+    const idx = DATA.indexOf(d);
+    const card = document.createElement('div');
+    card.className = 'dorm-card' + (activeCardId === idx ? ' selected' : '');
+    card.innerHTML = `
+      <div class="name">${d.name}</div>
+      <div class="meta">${d.distance_to_campus}</div>
+      <div class="price">${d.price_range_academic_year}</div>
+      <span class="tag-pill" style="background:${categoryColor(d._cat)}">${d._cat}</span>
+    `;
+    card.onclick = () => openDetail(idx);
+    cardList.appendChild(card);
+  });
+
+  rebuildMarkers(sorted);
+}
+
+function openDetail(idx){
+  activeCardId = idx;
+  const d = DATA[idx];
+  const panel = document.getElementById('detailPanel');
+  const content = document.getElementById('detailContent');
+  content.innerHTML = `
+    <h3>${d.name}</h3>
+    <div class="addr">${d.address}</div>
+
+    <div class="section">
+      <h4>Eligibility</h4>
+      <p>${d.eligibility}</p>
+    </div>
+    <div class="section">
+      <h4>Price (academic year)</h4>
+      <p>${d.price_range_academic_year}<br>Meal plan included: ${d.meal_plan_included}</p>
+    </div>
+    <div class="section">
+      <h4>Room types</h4>
+      <p>${d.room_types}</p>
+    </div>
+    <div class="section">
+      <h4>Style</h4>
+      <p>${d.style}</p>
+    </div>
+    <div class="section">
+      <h4>Amenities</h4>
+      <p>${d.amenities}</p>
+    </div>
+    <div class="section">
+      <h4>Dining</h4>
+      <p>${d.dining_hall}</p>
+    </div>
+    <div class="section">
+      <h4>Theme programs</h4>
+      <p>${d.theme_programs}</p>
+    </div>
+    <div class="section">
+      <h4>Distance to campus</h4>
+      <p>${d.distance_to_campus}</p>
+    </div>
+  `;
+  panel.classList.add('open');
+  map.flyTo([d._lat, d._lng], 16, {duration:0.6});
+  if(markers[idx]) markers[idx].openPopup();
+  render();
+}
+
+document.getElementById('closeDetail').onclick = () => {
+  document.getElementById('detailPanel').classList.remove('open');
+  activeCardId = null;
+  render();
+};
+
+document.getElementById('sortSelect').onchange = (e) => {
+  state.sort = e.target.value;
+  render();
+};
+
+document.getElementById('resetBtn').onclick = () => {
+  state.eligibility = 'All';
+  state.type = 'All';
+  state.meal = 'All';
+  state.sort = 'name';
+  document.getElementById('sortSelect').value = 'name';
+  buildChips('eligibilityChips', eligibilityOptions, 'eligibility');
+  buildChips('typeChips', typeOptions, 'type');
+  buildChips('mealChips', mealOptions, 'meal');
+  render();
+};
+
+buildChips('eligibilityChips', eligibilityOptions, 'eligibility');
+buildChips('typeChips', typeOptions, 'type');
+buildChips('mealChips', mealOptions, 'meal');
+render();
+</script>
+
+</body>
+</html>
