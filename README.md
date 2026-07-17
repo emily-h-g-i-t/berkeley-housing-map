@@ -2,7 +2,7 @@
 
 An interactive map and dashboard for exploring UC Berkeley's on-campus student housing — residence halls, undergraduate apartments, graduate apartments, and family housing.
 
-**[View the live site →](https://amily307.github.io/berkeley-housing-map/)**
+**[View the live site →](https://emily-h-g-i-t.github.io/berkeley-housing-map/)**
 
 ## What it does
 
